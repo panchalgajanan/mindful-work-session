@@ -133,6 +133,8 @@ export const FocusProvider: React.FC<{ children: React.ReactNode }> = ({ childre
                 (sessionCount + 1) % sessionsUntilLongBreak === 0 ? 'longBreak' : 'break';
               startTimer(nextSessionType);
             } else {
+              setTimerState('idle'); // Reset timer state to idle when completed
+              setTimeRemaining(0);
               showNotification('Work session completed! Time for a break.');
             }
           } else if (timerState === 'break' || timerState === 'longBreak') {
@@ -141,6 +143,8 @@ export const FocusProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             if (settings.pomodoro.autoStartWork) {
               startTimer('work');
             } else {
+              setTimerState('idle'); // Reset timer state to idle when completed
+              setTimeRemaining(0);
               showNotification('Break completed! Ready to get back to work?');
             }
           }
@@ -154,6 +158,19 @@ export const FocusProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const showNotification = (message: string) => {
     toast(message);
+    
+    // Show desktop notification if browser supports it and user gave permission
+    if (settings.notifications.soundEnabled && 'Notification' in window) {
+      if (Notification.permission === 'granted') {
+        new Notification('FocusFlow', {
+          body: message,
+          icon: '/favicon.ico'
+        });
+      } else if (Notification.permission !== 'denied') {
+        Notification.requestPermission();
+      }
+    }
+    
     if (settings.notifications.soundEnabled) {
       // Play notification sound
       const audio = new Audio('/notification.mp3');

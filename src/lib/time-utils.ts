@@ -50,3 +50,21 @@ export const formatDateFull = (date: Date): string => {
     minute: '2-digit'
   });
 };
+
+// Helper function to parse date strings consistently
+export const parseDate = (dateString: string | Date): Date => {
+  if (dateString instanceof Date) {
+    return dateString;
+  }
+  
+  // Try to parse the date
+  const parsed = new Date(dateString);
+  
+  // Check if the date is valid
+  if (isNaN(parsed.getTime())) {
+    console.error("Invalid date string:", dateString);
+    return new Date(); // Return current date as fallback
+  }
+  
+  return parsed;
+};

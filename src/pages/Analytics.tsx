@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { BarChart as BarChartIcon, PieChart, Calendar, ArrowLeft, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -6,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import Layout from "@/components/layout/Layout";
 import { useFocus, FocusSession } from "@/contexts/FocusContext";
-import { formatDuration, formatDateFull, getDateRangeLabel } from "@/lib/time-utils";
+import { formatDuration, formatDateFull, getDateRangeLabel, parseDate } from "@/lib/time-utils";
 import { 
   BarChart, 
   Bar, 
@@ -29,7 +28,7 @@ const Analytics = () => {
   
   // Filter sessions by date range
   const filteredSessions = sessions.filter(session => {
-    const sessionDate = new Date(session.startTime);
+    const sessionDate = parseDate(session.startTime);
     const today = new Date();
     const pastDate = new Date();
     pastDate.setDate(today.getDate() - dateRange);
@@ -38,20 +37,31 @@ const Analytics = () => {
 
   // Group sessions by day
   const sessionsByDay = filteredSessions.reduce<Record<string, FocusSession[]>>((acc, session) => {
-    const date = new Date(session.startTime).toLocaleDateString();
-    if (!acc[date]) {
-      acc[date] = [];
+    // Format date to use consistent format for grouping
+    const sessionDate = parseDate(session.startTime);
+    const dateKey = sessionDate.toISOString().split('T')[0]; // Use YYYY-MM-DD as key
+    
+    if (!acc[dateKey]) {
+      acc[dateKey] = [];
     }
-    acc[date].push(session);
+    acc[dateKey].push(session);
     return acc;
   }, {});
 
   // Create data for bar chart
-  const dailyData = Object.entries(sessionsByDay).map(([date, daySessions]) => {
+  const dailyData = Object.entries(sessionsByDay).map(([dateKey, daySessions]) => {
+    // Convert back to Date for display
+    const dateParts = dateKey.split('-');
+    const displayDate = new Date(
+      Number(dateParts[0]), 
+      Number(dateParts[1]) - 1, // Month is 0-indexed 
+      Number(dateParts[2])
+    );
+    
     const totalMinutes = daySessions.reduce((total, session) => {
       if (session.type === 'work' && session.endTime) {
         const duration = Math.floor(
-          (new Date(session.endTime).getTime() - new Date(session.startTime).getTime()) / 1000
+          (parseDate(session.endTime).getTime() - parseDate(session.startTime).getTime()) / 1000
         ) - (session.pauseDuration || 0);
         return total + duration / 60; // Convert to minutes
       }
@@ -67,14 +77,13 @@ const Analytics = () => {
     ).length;
     
     return {
-      date: new Date(date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
+      date: displayDate.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
       totalMinutes: Math.round(totalMinutes),
       completedSessions,
-      abortedSessions
+      abortedSessions,
+      dateObj: displayDate // Keep the date object for sorting
     };
-  }).sort((a, b) => {
-    return new Date(a.date).getTime() - new Date(b.date).getTime();
-  });
+  }).sort((a, b) => a.dateObj.getTime() - b.dateObj.getTime());
 
   // Create data for pie chart
   const totalCompleted = filteredSessions.filter(
@@ -96,7 +105,7 @@ const Analytics = () => {
     .reduce((total, session) => {
       if (session.endTime) {
         const duration = Math.floor(
-          (new Date(session.endTime).getTime() - new Date(session.startTime).getTime()) / 1000
+          (parseDate(session.endTime).getTime() - parseDate(session.startTime).getTime()) / 1000
         ) - (session.pauseDuration || 0);
         return total + duration;
       }
@@ -293,11 +302,11 @@ const Analytics = () => {
                       </thead>
                       <tbody>
                         {filteredSessions
-                          .sort((a, b) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime())
+                          .sort((a, b) => parseDate(b.startTime).getTime() - parseDate(a.startTime).getTime())
                           .slice(0, 10)
                           .map((session) => (
                             <tr key={session.id} className="border-b">
-                              <td className="py-3 px-4">{formatDateFull(new Date(session.startTime))}</td>
+                              <td className="py-3 px-4">{formatDateFull(parseDate(session.startTime))}</td>
                               <td className="py-3 px-4 capitalize">{session.type}</td>
                               <td className="py-3 px-4">{formatDuration(session.duration)}</td>
                               <td className="py-3 px-4">

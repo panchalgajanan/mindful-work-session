@@ -1,3 +1,4 @@
+
 import { useToast } from "@/hooks/use-toast"
 import {
   Toast,
@@ -7,9 +8,18 @@ import {
   ToastTitle,
   ToastViewport,
 } from "@/components/ui/toast"
+import { useEffect } from "react"
 
 export function Toaster() {
   const { toasts } = useToast()
+
+  // Request notification permission when component mounts
+  useEffect(() => {
+    if ('Notification' in window && Notification.permission === 'default') {
+      // We don't auto-request here to avoid annoying users
+      // Instead we'll request when they start a timer
+    }
+  }, [])
 
   return (
     <ToastProvider>
