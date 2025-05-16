@@ -38,10 +38,18 @@ export const getDateRangeLabel = (days: number): string => {
 };
 
 export const formatDateMonthDay = (date: Date): string => {
+  if (!isValidDate(date)) {
+    console.error('Invalid date provided to formatDateMonthDay:', date);
+    return 'Invalid Date';
+  }
   return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 };
 
 export const formatDateFull = (date: Date): string => {
+  if (!isValidDate(date)) {
+    console.error('Invalid date provided to formatDateFull:', date);
+    return 'Invalid Date';
+  }
   return date.toLocaleDateString(undefined, { 
     year: 'numeric',
     month: 'short', 
@@ -54,17 +62,25 @@ export const formatDateFull = (date: Date): string => {
 // Helper function to safely parse date strings consistently
 export const parseDate = (dateString: string | Date): Date => {
   if (dateString instanceof Date) {
-    return new Date(dateString.getTime()); // Create a copy to avoid reference issues
+    // Make sure the Date object is valid
+    if (isValidDate(dateString)) {
+      return new Date(dateString.getTime()); // Create a copy to avoid reference issues
+    }
   }
   
   // Try to parse the date
   const parsed = new Date(dateString);
   
   // Check if the date is valid
-  if (isNaN(parsed.getTime())) {
+  if (!isValidDate(parsed)) {
     console.error("Invalid date string:", dateString);
     return new Date(); // Return current date as fallback
   }
   
   return parsed;
+};
+
+// Helper function to check if a date is valid
+export const isValidDate = (date: Date | unknown): boolean => {
+  return date instanceof Date && !isNaN(date.getTime());
 };

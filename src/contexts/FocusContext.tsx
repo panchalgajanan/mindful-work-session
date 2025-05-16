@@ -108,7 +108,7 @@ export const FocusProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     );
   }, [timerState, settings.blocklist.enabled]);
 
-  // Timer countdown function
+  // Timer countdown function - this is where the main issue is
   const runTimer = () => {
     if (timerRef.current) {
       window.clearInterval(timerRef.current);
@@ -116,61 +116,16 @@ export const FocusProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     timerRef.current = window.setInterval(() => {
       setTimeRemaining(prev => {
+        // Critical fix: if time is up, correctly handle session completion
         if (prev <= 1) {
-          // Clear the timer interval
+          // Clear the interval immediately to prevent any race conditions
           if (timerRef.current) {
             window.clearInterval(timerRef.current);
             timerRef.current = null;
           }
           
-          // Timer completed - this is the key fix!
-          if (currentSession) {
-            // Handle session completion
-            const updatedSession: FocusSession = {
-              ...currentSession,
-              endTime: new Date(),
-              completed: true,
-              aborted: false,
-              pauseDuration: pauseAccumulated.current
-            };
-            
-            setSessions(prev => [...prev, updatedSession]);
-            
-            // Automatically transition to the next session
-            if (timerState === 'working') {
-              const { autoStartBreaks, sessionsUntilLongBreak } = settings.pomodoro;
-              showNotification('Work session completed! Time for a break.');
-              
-              if (autoStartBreaks) {
-                const nextSessionType: SessionType = 
-                  (sessionCount + 1) % sessionsUntilLongBreak === 0 ? 'longBreak' : 'break';
-                // Set a small delay to allow the session to update properly
-                setTimeout(() => {
-                  setCurrentSession(null);
-                  startTimer(nextSessionType);
-                }, 300);
-              } else {
-                setTimerState('idle');
-                setTimeRemaining(0);
-                setCurrentSession(null);
-              }
-            } else if (timerState === 'break' || timerState === 'longBreak') {
-              showNotification('Break completed! Ready to get back to work?');
-              
-              if (settings.pomodoro.autoStartWork) {
-                // Set a small delay to allow the session to update properly
-                setTimeout(() => {
-                  setCurrentSession(null);
-                  startTimer('work');
-                }, 300);
-              } else {
-                setTimerState('idle');
-                setTimeRemaining(0);
-                setCurrentSession(null);
-              }
-            }
-          }
-          
+          // Complete the session and save it
+          completeCurrentSession();
           return 0;
         }
         return prev - 1;
@@ -178,11 +133,61 @@ export const FocusProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }, 1000);
   };
 
+  // New helper function to complete the current session
+  const completeCurrentSession = () => {
+    if (currentSession) {
+      const updatedSession: FocusSession = {
+        ...currentSession,
+        endTime: new Date(),
+        completed: true,
+        aborted: false,
+        pauseDuration: pauseAccumulated.current
+      };
+      
+      // Add the completed session to the sessions array
+      setSessions(prev => [...prev, updatedSession]);
+      
+      // Show appropriate notification
+      if (currentSession.type === 'work') {
+        showNotification('Work session completed! Time for a break.');
+        
+        if (settings.pomodoro.autoStartBreaks) {
+          const nextSessionType: SessionType = 
+            (sessionCount + 1) % settings.pomodoro.sessionsUntilLongBreak === 0 ? 'longBreak' : 'break';
+          // Use setTimeout to ensure state updates properly before starting a new timer
+          setTimeout(() => {
+            setCurrentSession(null);
+            startTimer(nextSessionType);
+          }, 300);
+        } else {
+          setTimerState('idle');
+          setTimeRemaining(0);
+          setCurrentSession(null);
+        }
+      } else if (currentSession.type === 'break' || currentSession.type === 'longBreak') {
+        showNotification('Break completed! Ready to get back to work?');
+        
+        if (settings.pomodoro.autoStartWork) {
+          // Use setTimeout to ensure state updates properly
+          setTimeout(() => {
+            setCurrentSession(null);
+            startTimer('work');
+          }, 300);
+        } else {
+          setTimerState('idle');
+          setTimeRemaining(0);
+          setCurrentSession(null);
+        }
+      }
+    }
+  };
+
   const showNotification = (message: string) => {
+    // Show toast notification
     toast(message);
     
     // Show desktop notification if browser supports it and user gave permission
-    if (settings.notifications.soundEnabled && 'Notification' in window) {
+    if ('Notification' in window) {
       if (Notification.permission === 'granted') {
         new Notification('FocusFlow', {
           body: message,
@@ -359,22 +364,6 @@ export const FocusProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setCurrentSession(null);
     pauseStartTimeRef.current = null;
     pauseAccumulated.current = 0;
-  };
-
-  // Replace completeSession with an improved version
-  const completeSession = () => {
-    if (currentSession) {
-      const updatedSession: FocusSession = {
-        ...currentSession,
-        endTime: new Date(),
-        completed: true,
-        aborted: false,
-        pauseDuration: pauseAccumulated.current
-      };
-      
-      setSessions(prev => [...prev, updatedSession]);
-      setCurrentSession(null);
-    }
   };
 
   return (
