@@ -45,7 +45,7 @@ Mindful Work Session is designed to help users maximize productivity with focuse
 - **Tailwind CSS** – Utility-first CSS framework
 
 ---
-
+Link/ URL : https://mindful-work-session.lovable.app/
 ## Getting Started
 
 ### Prerequisites
