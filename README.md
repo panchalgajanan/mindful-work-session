@@ -9,8 +9,8 @@ A modern, productivity-focused application designed to help you structure your w
 - [Overview](#overview)
 - [Features](#features)
 - [Tech Stack](#tech-stack)
-- [Getting Started](#getting-started)
-- [Development](#development)
+- [Project Structure](#Project-Structure)
+- [Demo/Usage Flow](#Demo/Usage Flow)
 - [Deployment](#deployment)
 - [Custom Domain](#custom-domain)
 - [Contributing](#contributing)
@@ -43,6 +43,38 @@ Mindful Work Session is designed to help users maximize productivity with focuse
 - **TypeScript** – Type-safe JavaScript
 - **shadcn-ui** – Accessible component library
 - **Tailwind CSS** – Utility-first CSS framework
+
+
+## Demo/Usage Flow
+1.	User opens the app and sets session/break durations.
+2.	Starts a work session:
+The timer counts down; distractions are minimized.
+3.	Break prompt:
+When the session ends, the app notifies the user to take a break.
+4.	Statistics update:
+After each session, completion stats and motivational feedback are shown.
+5.	Repeat:
+Users cycle through work and break intervals, customizing as desired.
+
+
+
+## Project Structure
+
+**mindful-work-session**/
+├── public/           # Static assets (favicon, images, etc.)
+├── src/
+│   ├── components/   # Reusable UI components (timers, buttons, modals)
+│   ├── hooks/        # Custom React hooks for session logic/state
+│   ├── pages/        # Main application views or pages
+│   ├── styles/       # Tailwind and other CSS files
+│   ├── App.tsx       # Root React component
+│   ├── main.tsx      # Application entry point (bootstraps React)
+│   └── ...           # Other TypeScript modules/utilities
+├── package.json      # Project metadata, dependencies, scripts
+├── tailwind.config.js# Tailwind CSS configuration
+├── vite.config.ts    # Vite configuration
+└── README.md         # Project documentation
+
 
 ---
 Link/ URL : https://mindful-work-session.lovable.app/
