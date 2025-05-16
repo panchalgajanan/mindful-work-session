@@ -1,8 +1,8 @@
-
 import React, { createContext, useState, useContext, useEffect, useRef } from "react";
 import { toast } from "sonner";
 import { useAuth } from "./AuthContext";
 import { useSettings } from "./SettingsContext";
+import { ensureValidDate } from "@/lib/time-utils";
 
 // Timer states
 type TimerState = 'idle' | 'working' | 'break' | 'longBreak' | 'paused';
@@ -62,19 +62,30 @@ export const FocusProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const timerRef = useRef<number | null>(null);
   const pauseStartTimeRef = useRef<Date | null>(null);
   const pauseAccumulated = useRef<number>(0);
+  const notificationPermissionChecked = useRef<boolean>(false);
 
-  // Load session data from localStorage
+  // Request notification permission on first load
+  useEffect(() => {
+    if (!notificationPermissionChecked.current && typeof Notification !== 'undefined') {
+      notificationPermissionChecked.current = true;
+      if (Notification.permission !== 'granted' && Notification.permission !== 'denied') {
+        Notification.requestPermission();
+      }
+    }
+  }, []);
+
+  // Load session data from localStorage with date handling
   useEffect(() => {
     if (user) {
       try {
         const savedSessions = localStorage.getItem(`focusflow_sessions_${user.id}`);
         if (savedSessions) {
           const parsed = JSON.parse(savedSessions);
-          // Convert string dates to Date objects
+          // Convert string dates to Date objects with validation
           const fixedSessions = parsed.map((s: any) => ({
             ...s,
-            startTime: new Date(s.startTime),
-            endTime: s.endTime ? new Date(s.endTime) : undefined
+            startTime: ensureValidDate(s.startTime),
+            endTime: s.endTime ? ensureValidDate(s.endTime) : undefined
           }));
           setSessions(fixedSessions);
         }
@@ -153,12 +164,26 @@ export const FocusProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   };
 
   const showNotification = (message: string) => {
+    // Show in-app toast notification
     toast(message);
+    
+    // Play notification sound if enabled
     if (settings.notifications.soundEnabled) {
-      // Play notification sound
       const audio = new Audio('/notification.mp3');
       audio.volume = settings.notifications.volume / 100;
       audio.play().catch(err => console.error('Failed to play notification sound:', err));
+    }
+    
+    // Show desktop notification if possible
+    if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+      try {
+        new Notification("FocusFlow", {
+          body: message,
+          icon: "/favicon.ico"
+        });
+      } catch (error) {
+        console.error("Failed to show desktop notification:", error);
+      }
     }
   };
 
@@ -285,7 +310,31 @@ export const FocusProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   };
 
-  // Stop the timer completely
+  // Complete the current session with auto-save
+  const completeSession = () => {
+    if (currentSession) {
+      const updatedSession: FocusSession = {
+        ...currentSession,
+        endTime: new Date(),
+        completed: true,
+        aborted: false,
+        pauseDuration: pauseAccumulated.current
+      };
+      
+      // Auto-save session immediately
+      const updatedSessions = [...sessions, updatedSession];
+      setSessions(updatedSessions);
+      
+      // Save to localStorage immediately
+      if (user) {
+        localStorage.setItem(`focusflow_sessions_${user.id}`, JSON.stringify(updatedSessions));
+      }
+      
+      setCurrentSession(null);
+    }
+  };
+
+  // Stop the timer with auto-save
   const stopTimer = (reason?: string) => {
     if (timerRef.current) {
       window.clearInterval(timerRef.current);
@@ -304,7 +353,14 @@ export const FocusProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           Math.floor((new Date().getTime() - pauseStartTimeRef.current.getTime()) / 1000) : 0)
       };
       
-      setSessions(prev => [...prev, updatedSession]);
+      // Auto-save immediately
+      const updatedSessions = [...sessions, updatedSession];
+      setSessions(updatedSessions);
+      
+      // Save to localStorage immediately
+      if (user) {
+        localStorage.setItem(`focusflow_sessions_${user.id}`, JSON.stringify(updatedSessions));
+      }
     }
     
     setTimerState('idle');
@@ -313,22 +369,6 @@ export const FocusProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setCurrentSession(null);
     pauseStartTimeRef.current = null;
     pauseAccumulated.current = 0;
-  };
-
-  // Complete the current session
-  const completeSession = () => {
-    if (currentSession) {
-      const updatedSession: FocusSession = {
-        ...currentSession,
-        endTime: new Date(),
-        completed: true,
-        aborted: false,
-        pauseDuration: pauseAccumulated.current
-      };
-      
-      setSessions(prev => [...prev, updatedSession]);
-      setCurrentSession(null);
-    }
   };
 
   return (
