@@ -1,4 +1,3 @@
-
 import React, { createContext, useState, useContext, useEffect, useRef } from "react";
 import { toast } from "sonner";
 import { useAuth } from "./AuthContext";
@@ -118,34 +117,57 @@ export const FocusProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     timerRef.current = window.setInterval(() => {
       setTimeRemaining(prev => {
         if (prev <= 1) {
+          // Clear the timer interval
           if (timerRef.current) {
             window.clearInterval(timerRef.current);
             timerRef.current = null;
           }
           
-          // Timer completed
-          if (timerState === 'working') {
-            completeSession();
+          // Timer completed - this is the key fix!
+          if (currentSession) {
+            // Handle session completion
+            const updatedSession: FocusSession = {
+              ...currentSession,
+              endTime: new Date(),
+              completed: true,
+              aborted: false,
+              pauseDuration: pauseAccumulated.current
+            };
             
-            const { autoStartBreaks, sessionsUntilLongBreak } = settings.pomodoro;
-            if (autoStartBreaks) {
-              const nextSessionType: SessionType = 
-                (sessionCount + 1) % sessionsUntilLongBreak === 0 ? 'longBreak' : 'break';
-              startTimer(nextSessionType);
-            } else {
-              setTimerState('idle'); // Reset timer state to idle when completed
-              setTimeRemaining(0);
+            setSessions(prev => [...prev, updatedSession]);
+            
+            // Automatically transition to the next session
+            if (timerState === 'working') {
+              const { autoStartBreaks, sessionsUntilLongBreak } = settings.pomodoro;
               showNotification('Work session completed! Time for a break.');
-            }
-          } else if (timerState === 'break' || timerState === 'longBreak') {
-            completeSession();
-            
-            if (settings.pomodoro.autoStartWork) {
-              startTimer('work');
-            } else {
-              setTimerState('idle'); // Reset timer state to idle when completed
-              setTimeRemaining(0);
+              
+              if (autoStartBreaks) {
+                const nextSessionType: SessionType = 
+                  (sessionCount + 1) % sessionsUntilLongBreak === 0 ? 'longBreak' : 'break';
+                // Set a small delay to allow the session to update properly
+                setTimeout(() => {
+                  setCurrentSession(null);
+                  startTimer(nextSessionType);
+                }, 300);
+              } else {
+                setTimerState('idle');
+                setTimeRemaining(0);
+                setCurrentSession(null);
+              }
+            } else if (timerState === 'break' || timerState === 'longBreak') {
               showNotification('Break completed! Ready to get back to work?');
+              
+              if (settings.pomodoro.autoStartWork) {
+                // Set a small delay to allow the session to update properly
+                setTimeout(() => {
+                  setCurrentSession(null);
+                  startTimer('work');
+                }, 300);
+              } else {
+                setTimerState('idle');
+                setTimeRemaining(0);
+                setCurrentSession(null);
+              }
             }
           }
           
@@ -167,7 +189,14 @@ export const FocusProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           icon: '/favicon.ico'
         });
       } else if (Notification.permission !== 'denied') {
-        Notification.requestPermission();
+        Notification.requestPermission().then(permission => {
+          if (permission === 'granted') {
+            new Notification('FocusFlow', {
+              body: message,
+              icon: '/favicon.ico'
+            });
+          }
+        });
       }
     }
     
@@ -332,7 +361,7 @@ export const FocusProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     pauseAccumulated.current = 0;
   };
 
-  // Complete the current session
+  // Replace completeSession with an improved version
   const completeSession = () => {
     if (currentSession) {
       const updatedSession: FocusSession = {

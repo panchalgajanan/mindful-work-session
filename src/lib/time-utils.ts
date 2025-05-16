@@ -51,10 +51,10 @@ export const formatDateFull = (date: Date): string => {
   });
 };
 
-// Helper function to parse date strings consistently
+// Helper function to safely parse date strings consistently
 export const parseDate = (dateString: string | Date): Date => {
   if (dateString instanceof Date) {
-    return dateString;
+    return new Date(dateString.getTime()); // Create a copy to avoid reference issues
   }
   
   // Try to parse the date

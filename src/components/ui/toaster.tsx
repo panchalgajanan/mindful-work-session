@@ -16,8 +16,8 @@ export function Toaster() {
   // Request notification permission when component mounts
   useEffect(() => {
     if ('Notification' in window && Notification.permission === 'default') {
-      // We don't auto-request here to avoid annoying users
-      // Instead we'll request when they start a timer
+      // We'll request permission when they start a timer in the FocusContext
+      Notification.requestPermission();
     }
   }, [])
 
