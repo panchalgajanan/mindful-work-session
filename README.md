@@ -1,73 +1,74 @@
-# Welcome to your Lovable project
+Mindful Work Session
+A modern, productivity-focused application designed to help you structure your work into mindful sessions using the latest web technologies.
 
-## Project info
+Table of Contents
+Overview
+Features
+Tech Stack
+Getting Started
+Development
+Deployment
+Custom Domain
+Contributing
+License
+Contact
+Overview
+Mindful Work Session is designed to help users maximize productivity with focused work intervals, using Pomodoro techniques and mindful reminders. Built with Vite, React, TypeScript, shadcn-ui, and Tailwind CSS, it delivers a fast and customizable experience.
 
-**URL**: https://lovable.dev/projects/76129328-9b04-4123-860a-e8b4de298844
+Features
+🧘‍♂️ Mindful, distraction-free work sessions
+⏲️ Pomodoro-style timers
+📊 Session and productivity statistics
+📝 Customizable session lengths and break durations
+🎨 Modern responsive UI with shadcn-ui and Tailwind CSS
+🔄 Real-time preview and hot-reloading during development
+Tech Stack
+Vite – Lightning-fast build tool
+React – UI library for building user interfaces
+TypeScript – Type-safe JavaScript
+shadcn-ui – Accessible component library
+Tailwind CSS – Utility-first CSS framework
+Getting Started
+Prerequisites
+Node.js & npm (recommend installing via nvm)
+Installation
+sh
+# Clone the repository
+git clone https://github.com/panchalgajanan/mindful-work-session.git
 
-## How can I edit this code?
+# Navigate to the project directory
+cd mindful-work-session
 
-There are several ways of editing your application.
+# Install dependencies
+npm install
 
-**Use Lovable**
-
-Simply visit the [Lovable Project](https://lovable.dev/projects/76129328-9b04-4123-860a-e8b4de298844) and start prompting.
-
-Changes made via Lovable will be committed automatically to this repo.
-
-**Use your preferred IDE**
-
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
-
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
-
-Follow these steps:
-
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
+# Start development server
 npm run dev
-```
+Alternative Editing Options
+Lovable Platform: Edit and prompt directly online.
+GitHub Web Editor: Edit files in-browser via the pencil icon and commit changes.
+GitHub Codespaces: Launch a cloud-based VS Code environment from the "Code" button on GitHub.
+Deployment
+To deploy your project, open the Lovable Project Page and click Share → Publish.
 
-**Edit a file directly in GitHub**
+Custom Domain
+You can connect a custom domain:
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+Go to Project → Settings → Domains in Lovable.
+Click "Connect Domain" and follow the instructions.
+For detailed steps, see Setting up a custom domain.
 
-**Use GitHub Codespaces**
+Contributing
+Contributions are welcome! Please fork the repository and submit a pull request. For major changes, open an issue first to discuss your ideas.
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+Fork the repo
+Create your feature branch (git checkout -b feature/AmazingFeature)
+Commit your changes (git commit -m 'Add some AmazingFeature')
+Push to the branch (git push origin feature/AmazingFeature)
+Open a pull request
+License
+Distributed under the MIT License. See LICENSE for more information.
 
-## What technologies are used for this project?
+Contact
+Created by panchalgajanan. For questions or support, please open an issue on this repository.
 
-This project is built with:
-
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
-
-## How can I deploy this project?
-
-Simply open [Lovable](https://lovable.dev/projects/76129328-9b04-4123-860a-e8b4de298844) and click on Share -> Publish.
-
-## Can I connect a custom domain to my Lovable project?
-
-Yes, you can!
-
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
-
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/tips-tricks/custom-domain#step-by-step-guide)
