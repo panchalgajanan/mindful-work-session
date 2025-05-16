@@ -10,7 +10,7 @@ A modern, productivity-focused application designed to help you structure your w
 - [Features](#features)
 - [Tech Stack](#tech-stack)
 - [Project Structure](#Project-Structure)
-- [Demo/Usage Flow](#Demo/Usage Flow)
+- [Demo/Usage Flow](#Demo/Usage-Flow)
 - [Deployment](#deployment)
 - [Custom Domain](#custom-domain)
 - [Contributing](#contributing)
@@ -61,19 +61,10 @@ Users cycle through work and break intervals, customizing as desired.
 ## Project Structure
 
 **mindful-work-session**/
-├── public/           # Static assets (favicon, images, etc.)
-├── src/
-│   ├── components/   # Reusable UI components (timers, buttons, modals)
-│   ├── hooks/        # Custom React hooks for session logic/state
-│   ├── pages/        # Main application views or pages
-│   ├── styles/       # Tailwind and other CSS files
-│   ├── App.tsx       # Root React component
-│   ├── main.tsx      # Application entry point (bootstraps React)
-│   └── ...           # Other TypeScript modules/utilities
-├── package.json      # Project metadata, dependencies, scripts
-├── tailwind.config.js# Tailwind CSS configuration
-├── vite.config.ts    # Vite configuration
-└── README.md         # Project documentation
+
+![image](https://github.com/user-attachments/assets/96f13a84-800d-4fce-8164-975edb6a3230)
+
+
 
 
 ---
