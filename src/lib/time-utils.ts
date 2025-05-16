@@ -50,11 +50,3 @@ export const formatDateFull = (date: Date): string => {
     minute: '2-digit'
   });
 };
-
-// Make sure date objects are properly handled before charting
-export const ensureValidDate = (dateStr: string | Date): Date => {
-  if (!dateStr) return new Date();
-  
-  const date = dateStr instanceof Date ? dateStr : new Date(dateStr);
-  return isNaN(date.getTime()) ? new Date() : date;
-};

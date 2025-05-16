@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { BarChart as BarChartIcon, PieChart, Calendar, ArrowLeft, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -5,12 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import Layout from "@/components/layout/Layout";
 import { useFocus, FocusSession } from "@/contexts/FocusContext";
-import { 
-  formatDuration, 
-  formatDateFull, 
-  getDateRangeLabel,
-  ensureValidDate 
-} from "@/lib/time-utils";
+import { formatDuration, formatDateFull, getDateRangeLabel } from "@/lib/time-utils";
 import { 
   BarChart, 
   Bar, 
@@ -31,18 +27,18 @@ const Analytics = () => {
   const { sessions } = useFocus();
   const [dateRange, setDateRange] = useState<7 | 14 | 30>(7);
   
-  // Filter sessions by date range with proper date handling
+  // Filter sessions by date range
   const filteredSessions = sessions.filter(session => {
-    const sessionDate = ensureValidDate(session.startTime);
+    const sessionDate = new Date(session.startTime);
     const today = new Date();
     const pastDate = new Date();
     pastDate.setDate(today.getDate() - dateRange);
     return sessionDate >= pastDate && sessionDate <= today;
   });
 
-  // Group sessions by day with proper date handling
+  // Group sessions by day
   const sessionsByDay = filteredSessions.reduce<Record<string, FocusSession[]>>((acc, session) => {
-    const date = ensureValidDate(session.startTime).toLocaleDateString();
+    const date = new Date(session.startTime).toLocaleDateString();
     if (!acc[date]) {
       acc[date] = [];
     }
@@ -54,9 +50,9 @@ const Analytics = () => {
   const dailyData = Object.entries(sessionsByDay).map(([date, daySessions]) => {
     const totalMinutes = daySessions.reduce((total, session) => {
       if (session.type === 'work' && session.endTime) {
-        const startTime = ensureValidDate(session.startTime).getTime();
-        const endTime = ensureValidDate(session.endTime).getTime();
-        const duration = Math.floor((endTime - startTime) / 1000) - (session.pauseDuration || 0);
+        const duration = Math.floor(
+          (new Date(session.endTime).getTime() - new Date(session.startTime).getTime()) / 1000
+        ) - (session.pauseDuration || 0);
         return total + duration / 60; // Convert to minutes
       }
       return total;
@@ -94,14 +90,14 @@ const Analytics = () => {
     { name: 'Aborted', value: totalAborted }
   ];
 
-  // Calculate stats with proper date handling
+  // Calculate stats
   const totalFocusTime = filteredSessions
     .filter(session => session.type === 'work')
     .reduce((total, session) => {
       if (session.endTime) {
-        const startTime = ensureValidDate(session.startTime).getTime();
-        const endTime = ensureValidDate(session.endTime).getTime();
-        const duration = Math.floor((endTime - startTime) / 1000) - (session.pauseDuration || 0);
+        const duration = Math.floor(
+          (new Date(session.endTime).getTime() - new Date(session.startTime).getTime()) / 1000
+        ) - (session.pauseDuration || 0);
         return total + duration;
       }
       return total;
@@ -115,7 +111,6 @@ const Analytics = () => {
     ? Math.round((totalCompleted / (totalCompleted + totalAborted)) * 100)
     : 0;
 
-  
   return (
     <Layout title="Focus Analytics">
       <div className="mb-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
@@ -156,7 +151,6 @@ const Analytics = () => {
         </div>
       </div>
       
-      
       {filteredSessions.length === 0 ? (
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-10">
@@ -175,9 +169,9 @@ const Analytics = () => {
         <>
           {/* Stats overview */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-            <Card className="bg-gradient-to-br from-white to-blue-50 dark:from-slate-800 dark:to-slate-900 border-blue-100 dark:border-blue-900 shadow-lg">
+            <Card>
               <CardHeader className="pb-2">
-                <CardTitle className="text-lg font-medium text-focus-primary">Total Focus Time</CardTitle>
+                <CardTitle className="text-lg font-medium">Total Focus Time</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold text-focus-primary">
@@ -186,9 +180,9 @@ const Analytics = () => {
               </CardContent>
             </Card>
             
-            <Card className="bg-gradient-to-br from-white to-blue-50 dark:from-slate-800 dark:to-slate-900 border-blue-100 dark:border-blue-900 shadow-lg">
+            <Card>
               <CardHeader className="pb-2">
-                <CardTitle className="text-lg font-medium text-focus-primary">Avg. Daily Focus</CardTitle>
+                <CardTitle className="text-lg font-medium">Avg. Daily Focus</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold text-focus-primary">
@@ -197,9 +191,9 @@ const Analytics = () => {
               </CardContent>
             </Card>
             
-            <Card className="bg-gradient-to-br from-white to-blue-50 dark:from-slate-800 dark:to-slate-900 border-blue-100 dark:border-blue-900 shadow-lg">
+            <Card>
               <CardHeader className="pb-2">
-                <CardTitle className="text-lg font-medium text-focus-primary">Completion Rate</CardTitle>
+                <CardTitle className="text-lg font-medium">Completion Rate</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold text-focus-primary">{completionRate}%</div>
@@ -225,11 +219,11 @@ const Analytics = () => {
             </TabsList>
             
             <TabsContent value="barChart">
-              <Card className="border-blue-100 dark:border-blue-900 shadow-lg overflow-hidden">
-                <CardHeader className="bg-gradient-to-r from-focus-primary to-focus-secondary text-white">
+              <Card>
+                <CardHeader>
                   <CardTitle>Daily Focus Minutes</CardTitle>
                 </CardHeader>
-                <CardContent className="h-80 pt-6">
+                <CardContent className="h-80">
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart data={dailyData}>
                       <CartesianGrid strokeDasharray="3 3" vertical={false} />
@@ -252,11 +246,11 @@ const Analytics = () => {
             </TabsContent>
             
             <TabsContent value="pieChart">
-              <Card className="border-blue-100 dark:border-blue-900 shadow-lg overflow-hidden">
-                <CardHeader className="bg-gradient-to-r from-focus-primary to-focus-secondary text-white">
+              <Card>
+                <CardHeader>
                   <CardTitle>Session Completion</CardTitle>
                 </CardHeader>
-                <CardContent className="h-80 pt-6">
+                <CardContent className="h-80">
                   <ResponsiveContainer width="100%" height="100%">
                     <RechartsPieChart>
                       <Pie
@@ -282,8 +276,8 @@ const Analytics = () => {
             </TabsContent>
             
             <TabsContent value="sessions">
-              <Card className="border-blue-100 dark:border-blue-900 shadow-lg">
-                <CardHeader className="bg-gradient-to-r from-focus-primary to-focus-secondary text-white">
+              <Card>
+                <CardHeader>
                   <CardTitle>Recent Sessions</CardTitle>
                 </CardHeader>
                 <CardContent>
@@ -302,15 +296,15 @@ const Analytics = () => {
                           .sort((a, b) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime())
                           .slice(0, 10)
                           .map((session) => (
-                            <tr key={session.id} className="border-b hover:bg-blue-50 dark:hover:bg-blue-900/10 transition-colors">
-                              <td className="py-3 px-4">{formatDateFull(ensureValidDate(session.startTime))}</td>
+                            <tr key={session.id} className="border-b">
+                              <td className="py-3 px-4">{formatDateFull(new Date(session.startTime))}</td>
                               <td className="py-3 px-4 capitalize">{session.type}</td>
                               <td className="py-3 px-4">{formatDuration(session.duration)}</td>
                               <td className="py-3 px-4">
                                 <span className={`inline-block px-2 py-1 rounded text-xs ${
                                   session.completed 
-                                    ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300" 
-                                    : "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300"
+                                    ? "bg-green-100 text-green-800" 
+                                    : "bg-amber-100 text-amber-800"
                                 }`}>
                                   {session.completed ? "Completed" : "Aborted"}
                                 </span>
