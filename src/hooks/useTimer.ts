@@ -1,4 +1,3 @@
-
 import { useState, useRef, useEffect } from "react";
 import { SessionType } from "@/contexts/FocusContext";
 
@@ -34,16 +33,22 @@ export function useTimer({ onComplete }: UseTimerOptions) {
 
     timerRef.current = window.setInterval(() => {
       setTimeRemaining(prev => {
-        // Critical fix: if time is up, correctly handle session completion
         if (prev <= 1) {
-          // Clear the interval immediately to prevent any race conditions
+          // Clear the interval immediately
           if (timerRef.current) {
             window.clearInterval(timerRef.current);
             timerRef.current = null;
           }
           
-          // Complete the session
-          onComplete();
+          // Set state to idle before calling onComplete
+          setTimerState('idle');
+          setTimeRemaining(0);
+          
+          // Call onComplete after state updates
+          setTimeout(() => {
+            onComplete();
+          }, 0);
+          
           return 0;
         }
         return prev - 1;

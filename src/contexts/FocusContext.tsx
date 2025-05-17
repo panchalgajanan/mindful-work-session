@@ -1,4 +1,3 @@
-
 import React, { createContext, useState, useContext, useEffect } from "react";
 import { toast } from "sonner";
 import { useAuth } from "./AuthContext";
@@ -103,14 +102,16 @@ export const FocusProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           const nextSessionType: SessionType = 
             (sessionCount + 1) % settings.pomodoro.sessionsUntilLongBreak === 0 ? 'longBreak' : 'break';
           
-          // Use setTimeout to ensure state updates properly before starting a new timer
+          // Reset current session and timer state
+          resetCurrentSession();
+          resetTimer();
+          
+          // Start next session after a short delay
           setTimeout(() => {
-            resetCurrentSession();
-            resetTimer();
             startTimer(nextSessionType);
-          }, 300);
+          }, 1000);
         } else {
-          // Properly reset the timer state
+          // Reset states
           resetTimer();
           resetCurrentSession();
         }
@@ -118,14 +119,16 @@ export const FocusProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         showNotification('Break completed! Ready to get back to work?');
         
         if (settings.pomodoro.autoStartWork) {
-          // Use setTimeout to ensure state updates properly
+          // Reset current session and timer state
+          resetCurrentSession();
+          resetTimer();
+          
+          // Start next session after a short delay
           setTimeout(() => {
-            resetCurrentSession();
-            resetTimer();
             startTimer('work');
-          }, 300);
+          }, 1000);
         } else {
-          // Properly reset the timer state
+          // Reset states
           resetTimer();
           resetCurrentSession();
         }
