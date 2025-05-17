@@ -108,7 +108,7 @@ export const FocusProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     );
   }, [timerState, settings.blocklist.enabled]);
 
-  // Timer countdown function - this is where the main issue is
+  // Timer countdown function
   const runTimer = () => {
     if (timerRef.current) {
       window.clearInterval(timerRef.current);
@@ -133,7 +133,7 @@ export const FocusProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }, 1000);
   };
 
-  // New helper function to complete the current session
+  // Helper function to complete the current session - fixing to properly stop
   const completeCurrentSession = () => {
     if (currentSession) {
       const updatedSession: FocusSession = {
@@ -156,13 +156,16 @@ export const FocusProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             (sessionCount + 1) % settings.pomodoro.sessionsUntilLongBreak === 0 ? 'longBreak' : 'break';
           // Use setTimeout to ensure state updates properly before starting a new timer
           setTimeout(() => {
+            setTimerState('idle');  // Explicit state reset before starting a new timer
             setCurrentSession(null);
             startTimer(nextSessionType);
           }, 300);
         } else {
+          // Properly reset the timer state
           setTimerState('idle');
           setTimeRemaining(0);
           setCurrentSession(null);
+          setTotalTime(0); // Reset total time as well for UI consistency
         }
       } else if (currentSession.type === 'break' || currentSession.type === 'longBreak') {
         showNotification('Break completed! Ready to get back to work?');
@@ -170,13 +173,16 @@ export const FocusProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         if (settings.pomodoro.autoStartWork) {
           // Use setTimeout to ensure state updates properly
           setTimeout(() => {
+            setTimerState('idle');  // Explicit state reset before starting a new timer
             setCurrentSession(null);
             startTimer('work');
           }, 300);
         } else {
+          // Properly reset the timer state
           setTimerState('idle');
           setTimeRemaining(0);
           setCurrentSession(null);
+          setTotalTime(0); // Reset total time as well for UI consistency
         }
       }
     }
