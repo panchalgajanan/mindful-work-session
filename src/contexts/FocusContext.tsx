@@ -62,6 +62,11 @@ export const FocusProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const sessionLogger = SessionLogService.getInstance();
   const notificationService = NotificationService.getInstance();
   
+  // Update session logger when user changes
+  useEffect(() => {
+    sessionLogger.setCurrentUser(user?.id || null);
+  }, [user?.id]);
+
   // Initialize session manager
   const { 
     currentSession, 
@@ -74,6 +79,18 @@ export const FocusProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   } = useSessionManager({ 
     userId: user?.id 
   });
+
+  // Sync sessions with SessionLogService
+  useEffect(() => {
+    if (user?.id && sessions.length > 0) {
+      // Update SessionLogService with current sessions
+      sessions.forEach(session => {
+        if (!sessionLogger.getAllSessions().some(s => s.id === session.id)) {
+          sessionLogger.logSession(session);
+        }
+      });
+    }
+  }, [sessions, user?.id]);
 
   // Initialize timer with completion handler
   const { 

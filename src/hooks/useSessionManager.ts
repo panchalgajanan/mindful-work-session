@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { FocusSession, SessionType } from "@/contexts/FocusContext";
 
@@ -15,7 +14,7 @@ export function useSessionManager({ userId }: UseSessionManagerOptions) {
   useEffect(() => {
     if (userId) {
       try {
-        const savedSessions = localStorage.getItem(`focusflow_sessions_${userId}`);
+        const savedSessions = localStorage.getItem(`focus_sessions_${userId}`);
         if (savedSessions) {
           const parsed = JSON.parse(savedSessions);
           // Convert string dates to Date objects
@@ -37,7 +36,7 @@ export function useSessionManager({ userId }: UseSessionManagerOptions) {
   // Save session data to localStorage when it changes
   useEffect(() => {
     if (userId && sessions.length > 0) {
-      localStorage.setItem(`focusflow_sessions_${userId}`, JSON.stringify(sessions));
+      localStorage.setItem(`focus_sessions_${userId}`, JSON.stringify(sessions));
     }
   }, [sessions, userId]);
 

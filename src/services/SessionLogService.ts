@@ -18,19 +18,10 @@ interface DailyStats {
 
 class SessionLogService {
   private static instance: SessionLogService;
-  private sessions: FocusSession[] = [];
+  private sessions: Map<string, FocusSession[]> = new Map(); // Map of userId to sessions
+  private currentUserId: string | null = null;
 
-  private constructor() {
-    // Load sessions from localStorage
-    const savedSessions = localStorage.getItem('focus_sessions');
-    if (savedSessions) {
-      this.sessions = JSON.parse(savedSessions).map((session: any) => ({
-        ...session,
-        startTime: new Date(session.startTime),
-        endTime: session.endTime ? new Date(session.endTime) : undefined
-      }));
-    }
-  }
+  private constructor() {}
 
   static getInstance(): SessionLogService {
     if (!SessionLogService.instance) {
@@ -39,20 +30,53 @@ class SessionLogService {
     return SessionLogService.instance;
   }
 
-  // Log a new session
-  logSession(session: FocusSession) {
-    this.sessions.push(session);
-    this.saveSessions();
+  // Set the current user and load their sessions
+  setCurrentUser(userId: string | null) {
+    this.currentUserId = userId;
+    if (userId) {
+      this.loadUserSessions(userId);
+    }
   }
 
-  // Get all sessions
+  // Load sessions for a specific user
+  private loadUserSessions(userId: string) {
+    const savedSessions = localStorage.getItem(`focus_sessions_${userId}`);
+    if (savedSessions) {
+      const parsedSessions = JSON.parse(savedSessions).map((session: any) => ({
+        ...session,
+        startTime: new Date(session.startTime),
+        endTime: session.endTime ? new Date(session.endTime) : undefined
+      }));
+      this.sessions.set(userId, parsedSessions);
+    } else {
+      this.sessions.set(userId, []);
+    }
+  }
+
+  // Get current user's sessions
+  private getCurrentUserSessions(): FocusSession[] {
+    if (!this.currentUserId) return [];
+    return this.sessions.get(this.currentUserId) || [];
+  }
+
+  // Log a new session
+  logSession(session: FocusSession) {
+    if (!this.currentUserId) return;
+
+    const userSessions = this.sessions.get(this.currentUserId) || [];
+    userSessions.push(session);
+    this.sessions.set(this.currentUserId, userSessions);
+    this.saveUserSessions(this.currentUserId);
+  }
+
+  // Get all sessions for current user
   getAllSessions(): FocusSession[] {
-    return this.sessions;
+    return this.getCurrentUserSessions();
   }
 
   // Get sessions for a specific date range
   getSessionsInRange(startDate: Date, endDate: Date): FocusSession[] {
-    return this.sessions.filter(session => {
+    return this.getCurrentUserSessions().filter(session => {
       const sessionDate = new Date(session.startTime);
       return sessionDate >= startDate && sessionDate <= endDate;
     });
@@ -83,7 +107,7 @@ class SessionLogService {
 
   // Calculate overall statistics
   getStats(): SessionStats {
-    const workSessions = this.sessions.filter(s => s.type === 'work');
+    const workSessions = this.getCurrentUserSessions().filter(s => s.type === 'work');
     const completedSessions = workSessions.filter(s => s.completed);
     const abortedSessions = workSessions.filter(s => s.aborted);
     
@@ -148,9 +172,17 @@ class SessionLogService {
     return stats;
   }
 
-  // Save sessions to localStorage
-  private saveSessions() {
-    localStorage.setItem('focus_sessions', JSON.stringify(this.sessions));
+  // Save sessions for a specific user
+  private saveUserSessions(userId: string) {
+    const userSessions = this.sessions.get(userId) || [];
+    localStorage.setItem(`focus_sessions_${userId}`, JSON.stringify(userSessions));
+  }
+
+  // Clear all sessions for current user
+  clearSessions() {
+    if (!this.currentUserId) return;
+    this.sessions.set(this.currentUserId, []);
+    localStorage.removeItem(`focus_sessions_${this.currentUserId}`);
   }
 }
 
