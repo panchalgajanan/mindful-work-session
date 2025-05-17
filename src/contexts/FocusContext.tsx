@@ -1,10 +1,14 @@
-import React, { createContext, useState, useContext, useEffect, useRef } from "react";
+
+import React, { createContext, useState, useContext, useEffect } from "react";
 import { toast } from "sonner";
 import { useAuth } from "./AuthContext";
 import { useSettings } from "./SettingsContext";
+import { useTimer } from "@/hooks/useTimer";
+import { useSessionManager } from "@/hooks/useSessionManager";
+import NotificationService from "@/services/NotificationService";
 
 // Timer states
-type TimerState = 'idle' | 'working' | 'break' | 'longBreak' | 'paused';
+export type TimerState = 'idle' | 'working' | 'break' | 'longBreak' | 'paused';
 
 // Session data
 export type SessionType = 'work' | 'break' | 'longBreak';
@@ -50,56 +54,34 @@ export const useFocus = () => {
 export const FocusProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user } = useAuth();
   const { settings } = useSettings();
-  const [timerState, setTimerState] = useState<TimerState>('idle');
-  const [timeRemaining, setTimeRemaining] = useState<number>(0);
-  const [totalTime, setTotalTime] = useState<number>(0);
-  const [currentSession, setCurrentSession] = useState<FocusSession | null>(null);
-  const [sessionCount, setSessionCount] = useState<number>(0);
-  const [sessions, setSessions] = useState<FocusSession[]>([]);
   const [blockedWebsitesActive, setBlockedWebsitesActive] = useState<boolean>(false);
   
-  const timerRef = useRef<number | null>(null);
-  const pauseStartTimeRef = useRef<Date | null>(null);
-  const pauseAccumulated = useRef<number>(0);
+  // Initialize session manager
+  const { 
+    currentSession, 
+    sessions, 
+    sessionCount, 
+    createSession, 
+    completeSession, 
+    abortSession,
+    resetCurrentSession
+  } = useSessionManager({ 
+    userId: user?.id 
+  });
 
-  // Load session data from localStorage
-  useEffect(() => {
-    if (user) {
-      try {
-        const savedSessions = localStorage.getItem(`focusflow_sessions_${user.id}`);
-        if (savedSessions) {
-          const parsed = JSON.parse(savedSessions);
-          // Convert string dates to Date objects
-          const fixedSessions = parsed.map((s: any) => ({
-            ...s,
-            startTime: new Date(s.startTime),
-            endTime: s.endTime ? new Date(s.endTime) : undefined
-          }));
-          setSessions(fixedSessions);
-        }
-      } catch (error) {
-        console.error("Failed to load sessions", error);
-      }
-    } else {
-      setSessions([]);
-    }
-  }, [user]);
-
-  // Save session data to localStorage when it changes
-  useEffect(() => {
-    if (user && sessions.length > 0) {
-      localStorage.setItem(`focusflow_sessions_${user.id}`, JSON.stringify(sessions));
-    }
-  }, [sessions, user]);
-
-  // Cleanup timer on unmount
-  useEffect(() => {
-    return () => {
-      if (timerRef.current) {
-        window.clearInterval(timerRef.current);
-      }
-    };
-  }, []);
+  // Initialize timer with completion handler
+  const { 
+    timerState, 
+    timeRemaining, 
+    totalTime, 
+    startTimer: startTimerInternal, 
+    pauseTimer: pauseTimerInternal,
+    resumeTimer: resumeTimerInternal,
+    resetTimer,
+    getPauseDuration
+  } = useTimer({
+    onComplete: completeCurrentSession
+  });
 
   // Handle blocked websites
   useEffect(() => {
@@ -108,44 +90,10 @@ export const FocusProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     );
   }, [timerState, settings.blocklist.enabled]);
 
-  // Timer countdown function
-  const runTimer = () => {
-    if (timerRef.current) {
-      window.clearInterval(timerRef.current);
-    }
-
-    timerRef.current = window.setInterval(() => {
-      setTimeRemaining(prev => {
-        // Critical fix: if time is up, correctly handle session completion
-        if (prev <= 1) {
-          // Clear the interval immediately to prevent any race conditions
-          if (timerRef.current) {
-            window.clearInterval(timerRef.current);
-            timerRef.current = null;
-          }
-          
-          // Complete the session and save it
-          completeCurrentSession();
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-  };
-
-  // Helper function to complete the current session - fixing to properly stop
-  const completeCurrentSession = () => {
+  // Helper function to complete the current session
+  function completeCurrentSession() {
     if (currentSession) {
-      const updatedSession: FocusSession = {
-        ...currentSession,
-        endTime: new Date(),
-        completed: true,
-        aborted: false,
-        pauseDuration: pauseAccumulated.current
-      };
-      
-      // Add the completed session to the sessions array
-      setSessions(prev => [...prev, updatedSession]);
+      const updatedSession = completeSession(getPauseDuration());
       
       // Show appropriate notification
       if (currentSession.type === 'work') {
@@ -154,18 +102,17 @@ export const FocusProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         if (settings.pomodoro.autoStartBreaks) {
           const nextSessionType: SessionType = 
             (sessionCount + 1) % settings.pomodoro.sessionsUntilLongBreak === 0 ? 'longBreak' : 'break';
+          
           // Use setTimeout to ensure state updates properly before starting a new timer
           setTimeout(() => {
-            setTimerState('idle');  // Explicit state reset before starting a new timer
-            setCurrentSession(null);
+            resetCurrentSession();
+            resetTimer();
             startTimer(nextSessionType);
           }, 300);
         } else {
           // Properly reset the timer state
-          setTimerState('idle');
-          setTimeRemaining(0);
-          setCurrentSession(null);
-          setTotalTime(0); // Reset total time as well for UI consistency
+          resetTimer();
+          resetCurrentSession();
         }
       } else if (currentSession.type === 'break' || currentSession.type === 'longBreak') {
         showNotification('Break completed! Ready to get back to work?');
@@ -173,50 +120,29 @@ export const FocusProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         if (settings.pomodoro.autoStartWork) {
           // Use setTimeout to ensure state updates properly
           setTimeout(() => {
-            setTimerState('idle');  // Explicit state reset before starting a new timer
-            setCurrentSession(null);
+            resetCurrentSession();
+            resetTimer();
             startTimer('work');
           }, 300);
         } else {
           // Properly reset the timer state
-          setTimerState('idle');
-          setTimeRemaining(0);
-          setCurrentSession(null);
-          setTotalTime(0); // Reset total time as well for UI consistency
+          resetTimer();
+          resetCurrentSession();
         }
       }
     }
-  };
+  }
 
+  // Show notification and toast
   const showNotification = (message: string) => {
     // Show toast notification
     toast(message);
     
-    // Show desktop notification if browser supports it and user gave permission
-    if ('Notification' in window) {
-      if (Notification.permission === 'granted') {
-        new Notification('FocusFlow', {
-          body: message,
-          icon: '/favicon.ico'
-        });
-      } else if (Notification.permission !== 'denied') {
-        Notification.requestPermission().then(permission => {
-          if (permission === 'granted') {
-            new Notification('FocusFlow', {
-              body: message,
-              icon: '/favicon.ico'
-            });
-          }
-        });
-      }
-    }
-    
-    if (settings.notifications.soundEnabled) {
-      // Play notification sound
-      const audio = new Audio('/notification.mp3');
-      audio.volume = settings.notifications.volume / 100;
-      audio.play().catch(err => console.error('Failed to play notification sound:', err));
-    }
+    // Show desktop notification with sound if enabled
+    NotificationService.showNotification(message, {
+      soundEnabled: settings.notifications.soundEnabled,
+      volume: settings.notifications.volume
+    });
   };
 
   // Calculate duration based on session type
@@ -235,40 +161,13 @@ export const FocusProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   // Start a new timer session
   const startTimer = (type: SessionType = 'work') => {
-    if (timerRef.current) {
-      window.clearInterval(timerRef.current);
-    }
-    
     const duration = getSessionDuration(type);
     
-    // Update state
-    setTimerState(type === 'work' ? 'working' : type === 'break' ? 'break' : 'longBreak');
-    setTimeRemaining(duration);
-    setTotalTime(duration);
-    pauseAccumulated.current = 0;
-    
     // Create a new session
-    if (user) {
-      const newSession: FocusSession = {
-        id: crypto.randomUUID(),
-        userId: user.id,
-        startTime: new Date(),
-        duration: duration,
-        type: type,
-        completed: false,
-        aborted: false,
-        pauseDuration: 0
-      };
-      
-      setCurrentSession(newSession);
-      
-      if (type === 'work') {
-        setSessionCount(prev => prev + 1);
-      }
-    }
+    createSession(type, duration);
     
-    // Start the countdown
-    runTimer();
+    // Start the timer
+    startTimerInternal(duration, type);
     
     // Show notification
     if (type === 'work') {
@@ -282,59 +181,33 @@ export const FocusProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   // Pause the timer
   const pauseTimer = () => {
-    if (timerRef.current) {
-      window.clearInterval(timerRef.current);
-      timerRef.current = null;
-    }
-    
-    setTimerState('paused');
-    pauseStartTimeRef.current = new Date();
+    pauseTimerInternal();
   };
 
   // Resume the timer
   const resumeTimer = () => {
-    if (pauseStartTimeRef.current && currentSession) {
-      const pauseDuration = Math.floor((new Date().getTime() - pauseStartTimeRef.current.getTime()) / 1000);
-      pauseAccumulated.current += pauseDuration;
-    }
-    
-    pauseStartTimeRef.current = null;
-    
     if (currentSession) {
-      setTimerState(
-        currentSession.type === 'work' ? 'working' : 
-        currentSession.type === 'break' ? 'break' : 'longBreak'
-      );
-      runTimer();
+      resumeTimerInternal(currentSession.type);
     }
   };
 
   // Skip the current timer
   const skipTimer = () => {
-    if (timerRef.current) {
-      window.clearInterval(timerRef.current);
-      timerRef.current = null;
-    }
-    
     if (currentSession) {
       // Mark current session as completed but not aborted
-      const updatedSession: FocusSession = {
-        ...currentSession,
-        endTime: new Date(),
-        completed: true,
-        aborted: false,
-        pauseDuration: pauseAccumulated.current + (pauseStartTimeRef.current ? 
-          Math.floor((new Date().getTime() - pauseStartTimeRef.current.getTime()) / 1000) : 0)
-      };
-      
-      setSessions(prev => [...prev, updatedSession]);
+      completeSession(getPauseDuration());
       
       // Determine the next session type
       if (currentSession.type === 'work') {
         const nextType: SessionType = 
           sessionCount % settings.pomodoro.sessionsUntilLongBreak === 0 ? 'longBreak' : 'break';
+        
+        resetTimer();
+        resetCurrentSession();
         startTimer(nextType);
       } else {
+        resetTimer();
+        resetCurrentSession();
         startTimer('work');
       }
     } else {
@@ -344,32 +217,13 @@ export const FocusProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   // Stop the timer completely
   const stopTimer = (reason?: string) => {
-    if (timerRef.current) {
-      window.clearInterval(timerRef.current);
-      timerRef.current = null;
-    }
-    
     if (currentSession) {
       // Mark current session as aborted
-      const updatedSession: FocusSession = {
-        ...currentSession,
-        endTime: new Date(),
-        completed: false,
-        aborted: true,
-        abortReason: reason || 'Manually stopped',
-        pauseDuration: pauseAccumulated.current + (pauseStartTimeRef.current ? 
-          Math.floor((new Date().getTime() - pauseStartTimeRef.current.getTime()) / 1000) : 0)
-      };
-      
-      setSessions(prev => [...prev, updatedSession]);
+      abortSession(getPauseDuration(), reason);
     }
     
-    setTimerState('idle');
-    setTimeRemaining(0);
-    setTotalTime(0);
-    setCurrentSession(null);
-    pauseStartTimeRef.current = null;
-    pauseAccumulated.current = 0;
+    resetTimer();
+    resetCurrentSession();
   };
 
   return (
