@@ -15,6 +15,7 @@ export function useTimer({ onComplete }: UseTimerOptions) {
   const timerRef = useRef<number | null>(null);
   const pauseStartTimeRef = useRef<Date | null>(null);
   const pauseAccumulated = useRef<number>(0);
+  const isCompleting = useRef<boolean>(false);
 
   // Cleanup timer on unmount
   useEffect(() => {
@@ -33,21 +34,24 @@ export function useTimer({ onComplete }: UseTimerOptions) {
 
     timerRef.current = window.setInterval(() => {
       setTimeRemaining(prev => {
-        if (prev <= 1) {
+        if (prev <= 1 && !isCompleting.current) {
+          isCompleting.current = true;
+          
           // Clear the interval immediately
           if (timerRef.current) {
             window.clearInterval(timerRef.current);
             timerRef.current = null;
           }
           
-          // Set state to idle before calling onComplete
+          // Set state to idle
           setTimerState('idle');
           setTimeRemaining(0);
           
-          // Call onComplete after state updates
-          setTimeout(() => {
+          // Call onComplete in the next tick
+          Promise.resolve().then(() => {
             onComplete();
-          }, 0);
+            isCompleting.current = false;
+          });
           
           return 0;
         }
@@ -62,6 +66,8 @@ export function useTimer({ onComplete }: UseTimerOptions) {
       window.clearInterval(timerRef.current);
       timerRef.current = null;
     }
+    
+    isCompleting.current = false;
     
     // Update state
     setTimerState(type === 'work' ? 'working' : type === 'break' ? 'break' : 'longBreak');
@@ -107,6 +113,7 @@ export function useTimer({ onComplete }: UseTimerOptions) {
       timerRef.current = null;
     }
     
+    isCompleting.current = false;
     setTimerState('idle');
     setTimeRemaining(0);
     setTotalTime(0);

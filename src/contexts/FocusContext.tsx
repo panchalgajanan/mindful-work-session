@@ -5,6 +5,8 @@ import { useSettings } from "./SettingsContext";
 import { useTimer } from "@/hooks/useTimer";
 import { useSessionManager } from "@/hooks/useSessionManager";
 import NotificationService from "@/services/NotificationService";
+import WebsiteBlockerService from "@/services/WebsiteBlockerService";
+import SessionLogService from "@/services/SessionLogService";
 
 // Timer states
 export type TimerState = 'idle' | 'working' | 'break' | 'longBreak' | 'paused';
@@ -55,6 +57,11 @@ export const FocusProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const { settings } = useSettings();
   const [blockedWebsitesActive, setBlockedWebsitesActive] = useState<boolean>(false);
   
+  // Initialize services
+  const websiteBlocker = WebsiteBlockerService.getInstance();
+  const sessionLogger = SessionLogService.getInstance();
+  const notificationService = NotificationService.getInstance();
+  
   // Initialize session manager
   const { 
     currentSession, 
@@ -84,69 +91,77 @@ export const FocusProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   // Handle blocked websites
   useEffect(() => {
-    setBlockedWebsitesActive(
-      timerState === 'working' && settings.blocklist.enabled
-    );
-  }, [timerState, settings.blocklist.enabled]);
+    const shouldBlock = timerState === 'working' && settings.blocklist.enabled;
+    setBlockedWebsitesActive(shouldBlock);
+    
+    if (shouldBlock) {
+      websiteBlocker.initialize(settings.blocklist.websites);
+      websiteBlocker.activate();
+    } else {
+      websiteBlocker.deactivate();
+    }
+  }, [timerState, settings.blocklist.enabled, settings.blocklist.websites]);
 
   // Helper function to complete the current session
   function completeCurrentSession() {
-    if (currentSession) {
-      const updatedSession = completeSession(getPauseDuration());
+    if (!currentSession) return;
+
+    // Complete the current session
+    const updatedSession = completeSession(getPauseDuration());
+    
+    // Log the session
+    sessionLogger.logSession(updatedSession);
+    
+    // Show appropriate notification
+    if (currentSession.type === 'work') {
+      notificationService.showNotification('Work session completed! Time for a break.', {
+        soundEnabled: settings.notifications.soundEnabled,
+        volume: settings.notifications.volume
+      });
       
-      // Show appropriate notification
-      if (currentSession.type === 'work') {
-        showNotification('Work session completed! Time for a break.');
+      if (settings.pomodoro.autoStartBreaks) {
+        const nextSessionType: SessionType = 
+          (sessionCount + 1) % settings.pomodoro.sessionsUntilLongBreak === 0 ? 'longBreak' : 'break';
         
-        if (settings.pomodoro.autoStartBreaks) {
-          const nextSessionType: SessionType = 
-            (sessionCount + 1) % settings.pomodoro.sessionsUntilLongBreak === 0 ? 'longBreak' : 'break';
-          
-          // Reset current session and timer state
-          resetCurrentSession();
-          resetTimer();
-          
-          // Start next session after a short delay
-          setTimeout(() => {
+        // Reset states first
+        resetCurrentSession();
+        resetTimer();
+        
+        // Start next session after a delay
+        setTimeout(() => {
+          if (!currentSession) { // Double check we're still in a valid state
             startTimer(nextSessionType);
-          }, 1000);
-        } else {
-          // Reset states
-          resetTimer();
-          resetCurrentSession();
-        }
-      } else if (currentSession.type === 'break' || currentSession.type === 'longBreak') {
-        showNotification('Break completed! Ready to get back to work?');
+          }
+        }, 1500);
+      } else {
+        // Just reset states
+        resetTimer();
+        resetCurrentSession();
+      }
+    } else if (currentSession.type === 'break' || currentSession.type === 'longBreak') {
+      notificationService.showNotification('Break completed! Ready to get back to work?', {
+        soundEnabled: settings.notifications.soundEnabled,
+        volume: settings.notifications.volume
+      });
+      
+      if (settings.pomodoro.autoStartWork) {
+        // Reset states first
+        resetCurrentSession();
+        resetTimer();
         
-        if (settings.pomodoro.autoStartWork) {
-          // Reset current session and timer state
-          resetCurrentSession();
-          resetTimer();
-          
-          // Start next session after a short delay
-          setTimeout(() => {
+        // Start next session after a delay
+        setTimeout(() => {
+          if (!currentSession) { // Double check we're still in a valid state
             startTimer('work');
-          }, 1000);
-        } else {
-          // Reset states
-          resetTimer();
-          resetCurrentSession();
-        }
+          }
+        }, 1500);
+      } else {
+        // Just reset states
+        resetTimer();
+        resetCurrentSession();
       }
     }
   }
-
-  // Show notification and toast
-  const showNotification = (message: string) => {
-    // Show toast notification
-    toast(message);
-    
-    // Show desktop notification with sound if enabled
-    NotificationService.showNotification(message, {
-      soundEnabled: settings.notifications.soundEnabled,
-      volume: settings.notifications.volume
-    });
-  };
 
   // Calculate duration based on session type
   const getSessionDuration = (type: SessionType): number => {
@@ -173,13 +188,15 @@ export const FocusProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     startTimerInternal(duration, type);
     
     // Show notification
-    if (type === 'work') {
-      showNotification('Focus session started!');
-    } else if (type === 'break') {
-      showNotification('Break time started!');
-    } else {
-      showNotification('Long break started!');
-    }
+    notificationService.showNotification(
+      type === 'work' ? 'Focus session started!' :
+      type === 'break' ? 'Break time started!' :
+      'Long break started!',
+      {
+        soundEnabled: settings.notifications.soundEnabled,
+        volume: settings.notifications.volume
+      }
+    );
   };
 
   // Pause the timer
@@ -198,7 +215,8 @@ export const FocusProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const skipTimer = () => {
     if (currentSession) {
       // Mark current session as completed but not aborted
-      completeSession(getPauseDuration());
+      const updatedSession = completeSession(getPauseDuration());
+      sessionLogger.logSession(updatedSession);
       
       // Determine the next session type
       if (currentSession.type === 'work') {
@@ -222,7 +240,8 @@ export const FocusProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const stopTimer = (reason?: string) => {
     if (currentSession) {
       // Mark current session as aborted
-      abortSession(getPauseDuration(), reason);
+      const updatedSession = abortSession(getPauseDuration(), reason);
+      sessionLogger.logSession(updatedSession);
     }
     
     resetTimer();
